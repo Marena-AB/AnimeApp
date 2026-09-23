@@ -59,7 +59,12 @@ fun App() {
         ) { innerPadding ->
             Column(modifier = Modifier.fillMaxSize().padding(innerPadding).safeContentPadding()) {
                 NavHost(navController = navController, startDestination = ROUTE_STORIES) {
-                    composable(ROUTE_STORIES) { StoriesTab(posts) }
+                    composable(ROUTE_STORIES) {
+                        StoriesTab(
+                            posts = posts,
+                            onDelete = { post -> posts.remove(post) }
+                        )
+                    }
                         composable(ROUTE_UPLOAD) {
                             UploadTab(
                                 onPost = { title, description, image ->

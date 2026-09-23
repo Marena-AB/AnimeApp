@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,7 +16,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun StoriesTab(posts: List<Post>) {
+fun StoriesTab(posts: List<Post>, onDelete: (Post) -> Unit) {
     LazyColumn {
         items(posts, key = { it.id }) { post ->
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
@@ -29,6 +30,7 @@ fun StoriesTab(posts: List<Post>) {
                         contentScale = ContentScale.Fit
                     )
                 }
+                Button(onClick = { onDelete(post) }) { Text("Delete") }
             }
         }
     }
