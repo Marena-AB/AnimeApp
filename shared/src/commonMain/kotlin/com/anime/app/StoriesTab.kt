@@ -11,12 +11,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -25,6 +31,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun StoriesTab(posts: List<Post>, onEdit: (Post) -> Unit, onDelete: (Post) -> Unit) {
+    var postPendingDelete by remember { mutableStateOf<Post?>(null) }
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -60,11 +68,29 @@ fun StoriesTab(posts: List<Post>, onEdit: (Post) -> Unit, onDelete: (Post) -> Un
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = { onEdit(post) }) { Text("Edit") }
-                            Button(onClick = { onDelete(post) }) { Text("Delete") }
+                            Button(onClick = { postPendingDelete = post }) { Text("Delete") }
                         }
                     }
                 }
             }
         }
+    }
+
+    val postToConfirm = postPendingDelete
+    if (postToConfirm != null) {
+        AlertDialog(
+            onDismissRequest = { postPendingDelete = null },
+            title = { Text("Delete story?") },
+            text = { Text("\"${postToConfirm.title}\" will be removed. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(postToConfirm)
+                    postPendingDelete = null
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { postPendingDelete = null }) { Text("Cancel") }
+            }
+        )
     }
 }
