@@ -13,6 +13,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,17 +22,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.ui.graphics.Color
 
 data class Post(val id: Int, val title: String, val description: String, val image: ImageBitmap?)
+private const val ROUTE_WELCOME = "welcome"
 private const val ROUTE_STORIES = "stories"
 private const val ROUTE_UPLOAD = "upload"
+
 private val AnimeDarkColors = darkColorScheme(
     primary = Color(0xFFFF4FA3),
     onPrimary = Color(0xFF1A0011),
@@ -55,27 +57,34 @@ fun App() {
 
         Scaffold(
             bottomBar = {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = currentRoute?.destination?.route == ROUTE_STORIES,
-                        onClick = { navController.navigate(ROUTE_STORIES) { launchSingleTop = true } },
-                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                        label = { Text("Stories") }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute?.destination?.route == ROUTE_UPLOAD,
-                        onClick = {
-                            editingPost = null
-                            navController.navigate(ROUTE_UPLOAD) { launchSingleTop = true }
-                        },
-                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                        label = { Text("Upload") }
-                    )
+                if (currentRoute?.destination?.route != ROUTE_WELCOME) {
+                    NavigationBar {
+                        NavigationBarItem(
+                            selected = currentRoute?.destination?.route == ROUTE_STORIES,
+                            onClick = { navController.navigate(ROUTE_STORIES) { launchSingleTop = true } },
+                            icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                            label = { Text("Stories") }
+                        )
+                        NavigationBarItem(
+                            selected = currentRoute?.destination?.route == ROUTE_UPLOAD,
+                            onClick = {
+                                editingPost = null
+                                navController.navigate(ROUTE_UPLOAD) { launchSingleTop = true }
+                            },
+                            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                            label = { Text("Upload") }
+                        )
+                    }
                 }
             }
         ) { innerPadding ->
             Column(modifier = Modifier.fillMaxSize().padding(innerPadding).safeContentPadding()) {
-                NavHost(navController = navController, startDestination = ROUTE_STORIES) {
+                NavHost(navController = navController, startDestination = ROUTE_WELCOME) {
+                    composable(ROUTE_WELCOME) {
+                        WelcomeTab(
+                            onEnter = { navController.navigate(ROUTE_STORIES) { launchSingleTop = true } }
+                        )
+                    }
                     composable(ROUTE_STORIES) {
                         StoriesTab(
                             posts = posts,
