@@ -1,11 +1,12 @@
 package com.anime.app
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,43 +18,51 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun StoriesTab(posts: List<Post>, onDelete: (Post) -> Unit) {
+fun StoriesTab(posts: List<Post>, onEdit: (Post) -> Unit, onDelete: (Post) -> Unit) {
     LazyColumn(
-        modifier = Modifier.padding(16.dp)
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(posts, key = { it.id }) { post ->
             Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
                     post.image?.let {
                         Image(
                             bitmap = it,
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 300.dp),
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
                             contentScale = ContentScale.Crop
                         )
-                        Spacer(Modifier.height(12.dp))
                     }
-                    Text(
-                        post.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(post.description, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = { onDelete(post) }) { Text("Delete") }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            post.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            post.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { onEdit(post) }) { Text("Edit") }
+                            Button(onClick = { onDelete(post) }) { Text("Delete") }
+                        }
+                    }
                 }
             }
         }

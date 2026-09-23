@@ -26,10 +26,13 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
 @Composable
-fun UploadTab(onPost: (title: String, description: String, image: ImageBitmap?) -> Unit) {
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var pickedImage by remember { mutableStateOf<ImageBitmap?>(null) }
+fun UploadTab(
+    editingPost: Post?,
+    onSave: (title: String, description: String, image: ImageBitmap?) -> Unit
+) {
+    var title by remember { mutableStateOf(editingPost?.title ?: "") }
+    var description by remember { mutableStateOf(editingPost?.description ?: "") }
+    var pickedImage by remember { mutableStateOf(editingPost?.image) }
     val scope = rememberCoroutineScope()
 
     val picker = rememberFilePickerLauncher(type = FileKitType.Image) { file ->
@@ -69,12 +72,7 @@ fun UploadTab(onPost: (title: String, description: String, image: ImageBitmap?) 
 
         Button(
             enabled = title.isNotBlank() && description.isNotBlank(),
-            onClick = {
-                onPost(title.trim(), description.trim(), pickedImage)
-                title = ""
-                description = ""
-                pickedImage = null
-            }
-        ) { Text("Post") }
+            onClick = { onSave(title.trim(), description.trim(), pickedImage) }
+        ) { Text(if (editingPost != null) "Save" else "Post") }
     }
 }
