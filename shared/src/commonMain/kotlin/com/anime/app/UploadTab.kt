@@ -1,15 +1,16 @@
 package com.anime.app
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,7 +40,10 @@ fun UploadTab(onPost: (title: String, description: String, image: ImageBitmap?) 
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
@@ -67,6 +71,7 @@ fun UploadTab(onPost: (title: String, description: String, image: ImageBitmap?) 
             enabled = title.isNotBlank() && description.isNotBlank(),
             onClick = {
                 onPost(title.trim(), description.trim(), pickedImage)
+                title = ""
                 description = ""
                 pickedImage = null
             }

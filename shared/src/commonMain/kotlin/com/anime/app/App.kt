@@ -26,14 +26,23 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.ui.graphics.Color
 
 data class Post(val id: Int, val title: String, val description: String, val image: ImageBitmap?)
 private const val ROUTE_STORIES = "stories"
 private const val ROUTE_UPLOAD = "upload"
 
-@Composable
-fun App() {
-    MaterialTheme {
+    private val AnimeColorScheme = darkColorScheme(
+        primary = Color(0xFFFF4081),
+        secondary = Color(0xFF7C4DFF),
+        background = Color(0xFF121212),
+        surface = Color(0xFF1E1E1E)
+    )
+
+    @Composable
+    fun App() {
+    MaterialTheme(colorScheme = AnimeColorScheme) {
         val posts = remember { mutableStateListOf<Post>() }
         val navController = rememberNavController()
         val currentRoute by navController.currentBackStackEntryAsState()
