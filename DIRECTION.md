@@ -197,7 +197,7 @@ Turn the hidden admin editors into the studio desk in section 6.
 
 Supabase project **Mateo610's Project** (`yxyuquuyljgbxtzkydju`, `us-east-2`): `https://yxyuquuyljgbxtzkydju.supabase.co`. Schema is in `supabase/migrations/20260928050000_catalog_follows_likes.sql`. Anonymous clients can read creators, series, and films. Follows and likes require a signed-in user, and only that user's rows. Publishing requires `creators.can_publish`, which is false until you grant an invite. A new auth user gets a creator row automatically and still cannot publish. Seed catalog matches the app: 3 creators, 4 series, 8 films (2 one-offs). The database password is not stored in the repo.
 
-Still to do: sign-in in the app, point the repositories at Supabase, direct upload to Mux or Cloudflare Stream.
+Mux playback for the four uploaded films is in the catalog (JJK episodes Yuta and Suki, plus MusicTest and AI video). The Mux access token is in `.env` and is not committed. Still to do: sign-in in the app, point the repositories at Supabase, and mint direct uploads from the studio instead of pasting a finished playback URL.
 
 - Supabase (or equivalent) for accounts, creators, series, films, follows.
 - Row-level security: a creator writes only their rows.

@@ -47,6 +47,7 @@ kotlin {
             implementation(libs.ktor.client.android)
             implementation(libs.androidx.core.ktx)
             implementation(libs.media3.exoplayer)
+            implementation(libs.media3.exoplayer.hls)
             implementation(libs.media3.ui)
         }
         iosMain.dependencies {
