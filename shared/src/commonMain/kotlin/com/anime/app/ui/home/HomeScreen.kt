@@ -102,7 +102,7 @@ fun HomeScreen(
             }
         }
         val screenWidth = maxWidth
-        val heroHeight = maxHeight * 0.72f
+        val heroHeight = maxHeight * 0.52f
 
         Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
@@ -140,30 +140,6 @@ fun HomeScreen(
             }
         }
 
-        if (uiState.following.isNotEmpty()) {
-            item(key = "following", span = { GridItemSpan(maxLineSpan) }) {
-                FollowingRow(
-                    entries = uiState.following,
-                    onOpen = { entry ->
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        when (entry) {
-                            is FollowingEntry.SeriesEntry -> onSeriesClick(entry.series)
-                            is FollowingEntry.FilmEntry -> onFilmClick(entry.film)
-                        }
-                    },
-                )
-            }
-        }
-
-        if (uiState.continueWatching.isNotEmpty()) {
-            item(key = "continue-watching", span = { GridItemSpan(maxLineSpan) }) {
-                ContinueWatchingRow(
-                    items = uiState.continueWatching,
-                    onPlay = onPlayFilm,
-                )
-            }
-        }
-
         uiState.becauseYouWatched?.let { shelf ->
             item(key = "because-you-watched", span = { GridItemSpan(maxLineSpan) }) {
                 ShelfRow(
@@ -188,6 +164,30 @@ fun HomeScreen(
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         openShelfEntry(entry, onSeriesClick, onFilmClick)
                     },
+                )
+            }
+        }
+
+        if (uiState.following.isNotEmpty()) {
+            item(key = "following", span = { GridItemSpan(maxLineSpan) }) {
+                FollowingRow(
+                    entries = uiState.following,
+                    onOpen = { entry ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        when (entry) {
+                            is FollowingEntry.SeriesEntry -> onSeriesClick(entry.series)
+                            is FollowingEntry.FilmEntry -> onFilmClick(entry.film)
+                        }
+                    },
+                )
+            }
+        }
+
+        if (uiState.continueWatching.isNotEmpty()) {
+            item(key = "continue-watching", span = { GridItemSpan(maxLineSpan) }) {
+                ContinueWatchingRow(
+                    items = uiState.continueWatching,
+                    onPlay = onPlayFilm,
                 )
             }
         }

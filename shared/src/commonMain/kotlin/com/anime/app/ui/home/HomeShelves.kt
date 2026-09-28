@@ -13,8 +13,8 @@ data class BecauseYouWatched(
 private const val SHELF_LIMIT = 8
 
 /**
- * Next episode, then the same creator's other series and one-offs.
- * Hidden until something has been played. In-progress films stay on Continue watching.
+ * Next episode, then that creator's other work, then series that share a genre.
+ * Hidden until something has been played. The film just watched is left off the row.
  */
 fun becauseYouWatched(
     films: List<Film>,
@@ -24,13 +24,12 @@ fun becauseYouWatched(
 ): BecauseYouWatched? {
     val latest = progress.maxByOrNull { it.updatedAtEpochMs } ?: return null
     val anchor = films.find { it.id == latest.filmId } ?: return null
-    val inProgress = progress.filter { !it.completed }.map { it.filmId }.toSet()
+    val anchorSeries = series.find { it.id == anchor.seriesId }
     val nextEpisodes = films
         .filter { film ->
             film.seriesId != null &&
                 film.seriesId == anchor.seriesId &&
-                film.id != anchor.id &&
-                film.id !in inProgress
+                film.id != anchor.id
         }
         .sortedBy { it.episodeNumber ?: Int.MAX_VALUE }
         .map { it.toEntry(creatorsById) }
@@ -38,21 +37,30 @@ fun becauseYouWatched(
         .filter { it.creatorId == anchor.creatorId && it.id != anchor.seriesId }
         .map { it.toEntry(creatorsById) }
     val sameCreatorShorts = films
-        .filter { film ->
-            film.isOneOff &&
-                film.creatorId == anchor.creatorId &&
-                film.id != anchor.id &&
-                film.id !in inProgress
-        }
+        .filter { film -> film.isOneOff && film.creatorId == anchor.creatorId && film.id != anchor.id }
         .map { it.toEntry(creatorsById) }
-    val entries = (nextEpisodes + sameCreatorSeries + sameCreatorShorts)
+    val closeMatches = (nextEpisodes + sameCreatorSeries + sameCreatorShorts)
+        .distinctBy { it.key }
+    val genres = anchorSeries?.genres?.toSet().orEmpty()
+    val similarSeries = if (closeMatches.size >= 3) {
+        emptyList()
+    } else {
+        series
+            .filter { show ->
+                show.id != anchor.seriesId &&
+                    show.creatorId != anchor.creatorId &&
+                    show.genres.any { it in genres }
+            }
+            .map { it.toEntry(creatorsById) }
+    }
+    val entries = (closeMatches + similarSeries)
         .distinctBy { it.key }
         .take(SHELF_LIMIT)
     if (entries.isEmpty()) return null
     return BecauseYouWatched(watchedTitle = anchor.title, entries = entries)
 }
 
-/** Series you have not started, other than the featured one. */
+/** Other series, unstarted ones first. The featured series stays on the banner. */
 fun recommendedShelf(
     films: List<Film>,
     series: List<Series>,
@@ -62,11 +70,10 @@ fun recommendedShelf(
     creatorsById: Map<String, Creator>,
 ): List<FollowingEntry> {
     val started = progress.map { it.filmId }.toSet()
-    return series
-        .filter { show ->
-            show.id != featuredSeriesId &&
-                films.none { it.seriesId == show.id && it.id in started }
-        }
+    val others = series.filter { it.id != featuredSeriesId }
+    val unstarted = others.filter { show -> films.none { it.seriesId == show.id && it.id in started } }
+    val startedShows = others.filter { it !in unstarted }
+    return (unstarted + startedShows)
         .map { it.toEntry(creatorsById) }
         .filter { it.key !in excludeKeys }
         .distinctBy { it.key }

@@ -74,4 +74,35 @@ class HomeShelvesTest {
             ).map { it.title },
         )
     }
+
+    @Test
+    fun recommendedStaysWhenEveryOtherSeriesWasAlreadyStarted() = runTest {
+        val repository = FakeContentRepository()
+        val series = repository.observeSeries().first()
+        val films = repository.observeAllFilms().first()
+        val creators = repository.observeCreators().first().associateBy { it.id }
+        val progress = films
+            .filter { it.seriesId != null && it.seriesId != "jjk" }
+            .map { film ->
+                WatchProgress(
+                    filmId = film.id,
+                    positionSeconds = 10,
+                    durationSeconds = film.durationSeconds,
+                    completed = false,
+                    updatedAtEpochMs = 1L,
+                )
+            }
+
+        assertEquals(
+            listOf("Caminandes", "Big Buck Bunny", "Sintel", "Elephants Dream"),
+            recommendedShelf(
+                films = films,
+                series = series,
+                featuredSeriesId = "jjk",
+                progress = progress,
+                excludeKeys = emptySet(),
+                creatorsById = creators,
+            ).map { it.title },
+        )
+    }
 }
