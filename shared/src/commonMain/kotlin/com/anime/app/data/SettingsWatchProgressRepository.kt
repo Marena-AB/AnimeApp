@@ -17,17 +17,17 @@ class SettingsWatchProgressRepository(
 
     override fun observeAll(): Flow<Map<String, WatchProgress>> = state
 
-    override fun get(episodeId: String): WatchProgress? = state.value[episodeId]
+    override fun get(filmId: String): WatchProgress? = state.value[filmId]
 
     override fun save(progress: WatchProgress) {
-        state.update { it + (progress.episodeId to progress) }
+        state.update { it + (progress.filmId to progress) }
         settings.putString(KEY, json.encodeToString(state.value.values.toList()))
     }
 
     private fun load(): Map<String, WatchProgress> {
         val stored = settings.getStringOrNull(KEY) ?: return emptyMap()
         return try {
-            json.decodeFromString<List<WatchProgress>>(stored).associateBy { it.episodeId }
+            json.decodeFromString<List<WatchProgress>>(stored).associateBy { it.filmId }
         } catch (e: SerializationException) {
             emptyMap()
         } catch (e: IllegalArgumentException) {

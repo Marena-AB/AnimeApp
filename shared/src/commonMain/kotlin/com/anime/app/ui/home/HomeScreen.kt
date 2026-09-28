@@ -4,9 +4,6 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -31,16 +28,13 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -64,7 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
-import com.anime.app.model.Episode
+import com.anime.app.model.Film
 import com.anime.app.model.Series
 import com.anime.app.ui.components.BrandMark
 import com.anime.app.ui.components.DesignedState
@@ -82,8 +76,9 @@ fun HomeScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onSeriesClick: (Series) -> Unit,
-    onPlayEpisode: (Episode) -> Unit,
-    onNewSeries: () -> Unit,
+    onFilmClick: (Film) -> Unit,
+    onPlayFilm: (Film) -> Unit,
+    onOpenStudio: () -> Unit,
     onOpenDesignLab: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -121,14 +116,20 @@ fun HomeScreen(
             item(key = "featured", span = { GridItemSpan(maxLineSpan) }) {
                 FeaturedBanner(
                     series = featured,
-                    episode = uiState.featuredEpisode,
+                    creatorName = uiState.featuredCreatorName,
+                    isFollowing = uiState.isFeaturedCreatorFollowed,
+                    onToggleFollow = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.toggleFollow(uiState.featuredCreatorId)
+                    },
+                    film = uiState.featuredFilm,
                     onOpen = {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onSeriesClick(featured)
                     },
                     onPlay = {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onPlayEpisode(it)
+                        onPlayFilm(it)
                     },
                     parallaxOffset = parallaxOffset,
                     modifier = Modifier
@@ -139,11 +140,39 @@ fun HomeScreen(
             }
         }
 
+        if (uiState.following.isNotEmpty()) {
+            item(key = "following", span = { GridItemSpan(maxLineSpan) }) {
+                FollowingRow(
+                    entries = uiState.following,
+                    onOpen = { entry ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        when (entry) {
+                            is FollowingEntry.SeriesEntry -> onSeriesClick(entry.series)
+                            is FollowingEntry.FilmEntry -> onFilmClick(entry.film)
+                        }
+                    },
+                )
+            }
+        }
+
         if (uiState.continueWatching.isNotEmpty()) {
             item(key = "continue-watching", span = { GridItemSpan(maxLineSpan) }) {
                 ContinueWatchingRow(
                     items = uiState.continueWatching,
-                    onPlay = onPlayEpisode,
+                    onPlay = onPlayFilm,
+                )
+            }
+        }
+
+        if (uiState.oneOffs.isNotEmpty()) {
+            item(key = "films", span = { GridItemSpan(maxLineSpan) }) {
+                FilmsRow(
+                    films = uiState.oneOffs,
+                    creatorName = { film -> uiState.creatorsById[film.creatorId]?.displayName.orEmpty() },
+                    onOpen = { film ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onFilmClick(film)
+                    },
                 )
             }
         }
@@ -157,6 +186,7 @@ fun HomeScreen(
         items(uiState.series, key = { it.id }) { series ->
             SeriesCard(
                 series = series,
+                creatorName = uiState.creatorsById[series.creatorId]?.displayName.orEmpty(),
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
                 onClick = {
@@ -175,13 +205,7 @@ fun HomeScreen(
         }
         }
         HomeHeader(
-            isAdmin = uiState.isAdmin,
-            onTitleLongPress = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                viewModel.toggleAdmin()
-            },
-            onExitAdmin = viewModel::exitAdmin,
-            onNewSeries = onNewSeries,
+            onOpenStudio = onOpenStudio,
             onOpenDesignLab = onOpenDesignLab,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -195,47 +219,24 @@ fun HomeScreen(
 
 @Composable
 private fun HomeHeader(
-    isAdmin: Boolean,
-    onTitleLongPress: () -> Unit,
-    onExitAdmin: () -> Unit,
-    onNewSeries: () -> Unit,
+    onOpenStudio: () -> Unit,
     onOpenDesignLab: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Long-pressing the title is the hidden admin toggle (placeholder for creator sign-in).
-            BrandMark(
-                modifier = Modifier.combinedClickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                    onLongClick = onTitleLongPress,
-                ),
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(
-                onClick = onOpenDesignLab,
-                modifier = Modifier.size(48.dp),
-            ) {
-                Icon(Icons.Filled.Settings, contentDescription = "Design lab")
-            }
-            if (isAdmin) {
-                AssistChip(
-                    onClick = onExitAdmin,
-                    label = { Text("Admin") },
-                    trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Exit admin mode") },
-                )
-            }
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BrandMark()
+        Spacer(modifier = Modifier.weight(1f))
+        TextButton(onClick = onOpenStudio) {
+            Text("Studio")
         }
-        if (isAdmin) {
-            FilledTonalButton(
-                onClick = onNewSeries,
-                shape = MaterialTheme.shapes.small,
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text("New series", modifier = Modifier.padding(start = 6.dp))
-            }
+        IconButton(
+            onClick = onOpenDesignLab,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(Icons.Filled.Settings, contentDescription = "Design lab")
         }
     }
 }
@@ -243,9 +244,12 @@ private fun HomeHeader(
 @Composable
 private fun FeaturedBanner(
     series: Series,
-    episode: Episode?,
+    creatorName: String,
+    isFollowing: Boolean,
+    onToggleFollow: () -> Unit,
+    film: Film?,
     onOpen: () -> Unit,
-    onPlay: (Episode) -> Unit,
+    onPlay: (Film) -> Unit,
     parallaxOffset: Float,
     modifier: Modifier = Modifier,
 ) {
@@ -286,6 +290,24 @@ private fun FeaturedBanner(
                 style = MaterialTheme.typography.headlineLarge,
                 color = Color.White,
             )
+            if (creatorName.isNotBlank()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = creatorName,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.85f),
+                    )
+                    TextButton(
+                        onClick = onToggleFollow,
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                    ) {
+                        Text(if (isFollowing) "Following" else "Follow")
+                    }
+                }
+            }
             Text(
                 text = series.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -293,13 +315,13 @@ private fun FeaturedBanner(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (episode != null) {
+            if (film != null) {
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Button(
-                        onClick = { onPlay(episode) },
+                        onClick = { onPlay(film) },
                         modifier = Modifier.height(48.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
@@ -317,16 +339,70 @@ private fun FeaturedBanner(
 }
 
 @Composable
+private fun FollowingRow(
+    entries: List<FollowingEntry>,
+    onOpen: (FollowingEntry) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader(title = "Following", eyebrow = "Creators you follow")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(entries, key = { it.key }) { entry ->
+                FollowingCard(entry = entry, onClick = { onOpen(entry) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun FollowingCard(
+    entry: FollowingEntry,
+    onClick: () -> Unit,
+) {
+    PressScaleSurface(
+        onClick = onClick,
+        modifier = Modifier.width(220.dp),
+    ) {
+        Card(
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        ) {
+            AsyncImage(
+                model = entry.imageUrl.ifBlank { null },
+                contentDescription = entry.title,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                contentScale = ContentScale.Crop,
+            )
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text(
+                    text = entry.creatorName,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = entry.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ContinueWatchingRow(
     items: List<ContinueWatchingItem>,
-    onPlay: (Episode) -> Unit,
+    onPlay: (Film) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionHeader(title = "Continue watching", eyebrow = "Your queue")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(items, key = { it.episode.id }) { item ->
-                ContinueWatchingCard(item = item, onClick = { onPlay(item.episode) })
+            items(items, key = { it.film.id }) { item ->
+                ContinueWatchingCard(item = item, onClick = { onPlay(item.film) })
             }
         }
     }
@@ -347,8 +423,8 @@ private fun ContinueWatchingCard(
         ) {
             Box {
                 AsyncImage(
-                    model = item.episode.thumbnailUrl,
-                    contentDescription = item.episode.title,
+                    model = item.film.thumbnailUrl,
+                    contentDescription = item.film.title,
                     modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
                     contentScale = ContentScale.Crop,
                 )
@@ -361,14 +437,74 @@ private fun ContinueWatchingCard(
             }
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(
-                    text = item.series?.title.orEmpty(),
+                    text = item.series?.title ?: item.creatorName,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Ep. ${item.episode.number}: ${item.episode.title}",
+                    text = item.film.episodeNumber?.let { "Ep. $it: ${item.film.title}" } ?: item.film.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilmsRow(
+    films: List<Film>,
+    creatorName: (Film) -> String,
+    onOpen: (Film) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader(title = "Films", eyebrow = "One-offs")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(films, key = { it.id }) { film ->
+                FilmCard(
+                    film = film,
+                    creatorName = creatorName(film),
+                    onClick = { onOpen(film) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilmCard(
+    film: Film,
+    creatorName: String,
+    onClick: () -> Unit,
+) {
+    PressScaleSurface(
+        onClick = onClick,
+        modifier = Modifier.width(220.dp),
+    ) {
+        Card(
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        ) {
+            AsyncImage(
+                model = film.thumbnailUrl,
+                contentDescription = film.title,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                contentScale = ContentScale.Crop,
+            )
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text(
+                    text = creatorName,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = film.title,
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -382,6 +518,7 @@ private fun ContinueWatchingCard(
 @Composable
 private fun SeriesCard(
     series: Series,
+    creatorName: String,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: () -> Unit,
@@ -440,6 +577,16 @@ private fun SeriesCard(
                     overflow = TextOverflow.Ellipsis,
                     color = Color.White,
                 )
+                if (creatorName.isNotBlank()) {
+                    Text(
+                        text = creatorName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.9f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 if (series.genres.isNotEmpty()) {
                     Text(
                         text = series.genres.take(2).joinToString(" · "),

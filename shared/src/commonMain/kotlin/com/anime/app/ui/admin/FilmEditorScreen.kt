@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -21,7 +20,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -31,8 +29,8 @@ import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 
 @Composable
-fun EpisodeEditorScreen(
-    viewModel: EpisodeEditorViewModel,
+fun FilmEditorScreen(
+    viewModel: FilmEditorViewModel,
     onBack: () -> Unit,
     onSaved: () -> Unit,
 ) {
@@ -45,13 +43,13 @@ fun EpisodeEditorScreen(
     val videoPicker = rememberFilePickerLauncher(type = FileKitType.Video) { file ->
         if (file != null) viewModel.onVideoPicked(file.toMediaUrl())
     }
-    val thumbnailPicker = rememberFilePickerLauncher(type = FileKitType.Image) { file ->
+    val coverPicker = rememberFilePickerLauncher(type = FileKitType.Image) { file ->
         if (file != null) viewModel.updateForm { it.copy(thumbnailUrl = file.toMediaUrl()) }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
         EditorTopBar(
-            title = if (uiState.isNew) "New episode" else "Edit episode",
+            title = if (uiState.isNew) "New film" else "Edit film",
             canSave = uiState.canSave,
             onBack = onBack,
             onSave = viewModel::save,
@@ -72,15 +70,7 @@ fun EpisodeEditorScreen(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            if (uiState.seriesTitle.isNotBlank()) {
-                Text(
-                    text = uiState.seriesTitle,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            SectionHeader(title = "Media", eyebrow = "Source file")
+            SectionHeader(title = "Media", eyebrow = "One-off")
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Video", style = MaterialTheme.typography.labelLarge)
                 Row(
@@ -92,38 +82,30 @@ fun EpisodeEditorScreen(
                     }
                     when {
                         uiState.isReadingVideo -> CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                        form.videoUrl.isNotBlank() -> Text(
-                            text = if (form.durationSeconds > 0) {
-                                "Selected · ${formatPlaybackTime(form.durationSeconds * 1000L)}"
-                            } else {
-                                "Selected"
-                            },
+                        form.videoUrl.isNotBlank() && form.durationSeconds > 0 -> Text(
+                            text = "Selected · ${formatPlaybackTime(form.durationSeconds * 1000L)}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        form.videoUrl.isNotBlank() -> Text(
+                            text = "Selected · duration unread",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
             }
-
             ImagePickerField(
-                label = "Thumbnail (defaults to the series cover)",
+                label = "Cover",
                 imageUrl = form.thumbnailUrl,
                 aspectRatio = 16f / 9f,
-                onPick = { thumbnailPicker.launch() },
+                onPick = { coverPicker.launch() },
             )
-            SectionHeader(title = "Episode details", eyebrow = "Publishing")
-            OutlinedTextField(
-                value = form.number,
-                onValueChange = { value ->
-                    viewModel.updateForm { it.copy(number = value.filter(Char::isDigit).take(4)) }
-                },
-                label = { Text("Episode number") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            SectionHeader(title = "Film", eyebrow = "Publishing")
             OutlinedTextField(
                 value = form.title,
                 onValueChange = { value -> viewModel.updateForm { it.copy(title = value) } },
@@ -146,50 +128,6 @@ fun EpisodeEditorScreen(
                 onModelNameChange = { value -> viewModel.updateForm { it.copy(modelName = value) } },
                 onOriginChange = { value -> viewModel.updateForm { it.copy(origin = value) } },
             )
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Intro range (optional)", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = form.introStartSeconds,
-                        onValueChange = { value ->
-                            viewModel.updateForm {
-                                it.copy(introStartSeconds = value.filter(Char::isDigit).take(5))
-                            }
-                        },
-                        label = { Text("Start (sec)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        isError = !uiState.introRangeValid,
-                        modifier = Modifier.weight(1f),
-                    )
-                    OutlinedTextField(
-                        value = form.introEndSeconds,
-                        onValueChange = { value ->
-                            viewModel.updateForm {
-                                it.copy(introEndSeconds = value.filter(Char::isDigit).take(5))
-                            }
-                        },
-                        label = { Text("End (sec)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        isError = !uiState.introRangeValid,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Text(
-                    text = if (uiState.introRangeValid) {
-                        "Skip Intro appears only while playback is inside this range."
-                    } else {
-                        "Enter both values, with the end after the start."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (uiState.introRangeValid) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
-                )
-            }
         }
     }
 }

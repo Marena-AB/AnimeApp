@@ -13,9 +13,9 @@ import kotlin.test.assertTrue
 private class InMemoryProgressRepository : WatchProgressRepository {
     val state = MutableStateFlow<Map<String, WatchProgress>>(emptyMap())
     override fun observeAll(): Flow<Map<String, WatchProgress>> = state
-    override fun get(episodeId: String): WatchProgress? = state.value[episodeId]
+    override fun get(filmId: String): WatchProgress? = state.value[filmId]
     override fun save(progress: WatchProgress) {
-        state.value = state.value + (progress.episodeId to progress)
+        state.value = state.value + (progress.filmId to progress)
     }
 }
 
@@ -23,8 +23,8 @@ class PlayerViewModelProgressTest {
     private val progress = InMemoryProgressRepository()
     private val viewModel = PlayerViewModel(FakeContentRepository(), progress, "caminandes-ep1")
 
-    private fun update(positionMs: Long, isPlaying: Boolean = true, isEnded: Boolean = false, episodeId: String = "caminandes-ep1") =
-        viewModel.onPlaybackUpdate(episodeId, positionMs, durationMs = 90_000, isPlaying = isPlaying, isEnded = isEnded)
+    private fun update(positionMs: Long, isPlaying: Boolean = true, isEnded: Boolean = false, filmId: String = "caminandes-ep1") =
+        viewModel.onPlaybackUpdate(filmId, positionMs, durationMs = 90_000, isPlaying = isPlaying, isEnded = isEnded)
 
     @Test
     fun doesNotSaveInTheFirstFewSeconds() {
@@ -62,7 +62,7 @@ class PlayerViewModelProgressTest {
         update(0)
         update(20_000)
         update(23_000)
-        update(0, episodeId = "caminandes-ep2")
+        update(0, filmId = "caminandes-ep2")
         assertEquals(23, progress.get("caminandes-ep1")?.positionSeconds)
     }
 }

@@ -2,43 +2,49 @@ package com.anime.app.ui.series
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.anime.app.data.AdminSession
 import com.anime.app.data.ContentRepository
+import com.anime.app.data.SocialRepository
 import com.anime.app.data.WatchProgressRepository
-import com.anime.app.model.Episode
+import com.anime.app.model.Film
 import com.anime.app.model.Series
 import com.anime.app.model.WatchProgress
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 data class SeriesDetailUiState(
     val series: Series? = null,
-    val episodes: List<Episode> = emptyList(),
+    val creatorName: String = "",
+    val creatorId: String = "",
+    val isFollowing: Boolean = false,
+    val isLiked: Boolean = false,
+    val films: List<Film> = emptyList(),
     val progress: Map<String, WatchProgress> = emptyMap(),
-    val isAdmin: Boolean = false,
     val isLoading: Boolean = true,
 )
 
 class SeriesDetailViewModel(
     private val contentRepository: ContentRepository,
     progressRepository: WatchProgressRepository,
-    adminSession: AdminSession,
+    private val socialRepository: SocialRepository,
     private val seriesId: String,
 ) : ViewModel() {
     val uiState: StateFlow<SeriesDetailUiState> = combine(
         contentRepository.observeSeries(seriesId),
-        contentRepository.observeEpisodes(seriesId),
+        contentRepository.observeFilms(seriesId),
+        contentRepository.observeCreators(),
         progressRepository.observeAll(),
-        adminSession.isAdmin,
-    ) { series, episodes, progress, isAdmin ->
+        socialRepository.observe(),
+    ) { series, films, creators, progress, social ->
         SeriesDetailUiState(
             series = series,
-            episodes = episodes,
+            creatorName = creators.find { it.id == series?.creatorId }?.displayName.orEmpty(),
+            creatorId = series?.creatorId.orEmpty(),
+            isFollowing = series?.creatorId?.let(social::isFollowing) == true,
+            isLiked = social.isSeriesLiked(seriesId),
+            films = films,
             progress = progress,
-            isAdmin = isAdmin,
             isLoading = series == null,
         )
     }.stateIn(
@@ -47,14 +53,13 @@ class SeriesDetailViewModel(
         initialValue = SeriesDetailUiState(),
     )
 
-    fun deleteSeries(onDeleted: () -> Unit) {
-        viewModelScope.launch {
-            contentRepository.deleteSeries(seriesId)
-            onDeleted()
-        }
+    fun toggleFollow() {
+        val creatorId = uiState.value.creatorId
+        if (creatorId.isBlank()) return
+        socialRepository.setFollowing(creatorId, !uiState.value.isFollowing)
     }
 
-    fun deleteEpisode(episodeId: String) {
-        viewModelScope.launch { contentRepository.deleteEpisode(episodeId) }
+    fun toggleLike() {
+        socialRepository.setSeriesLiked(seriesId, !uiState.value.isLiked)
     }
 }

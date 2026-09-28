@@ -4,9 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.anime.app.data.ContentRepository
 import com.anime.app.data.WatchProgressRepository
-import com.anime.app.model.Episode
+import com.anime.app.model.Film
 import com.anime.app.model.Series
 import com.anime.app.model.WatchProgress
+import com.anime.app.model.nextIn
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,9 +21,9 @@ import kotlin.math.abs
 import kotlin.time.Clock
 
 data class PlayerUiState(
-    val episode: Episode? = null,
+    val film: Film? = null,
     val series: Series? = null,
-    val nextEpisode: Episode? = null,
+    val nextFilm: Film? = null,
     val isFullscreen: Boolean = false,
 )
 
@@ -33,33 +34,38 @@ private const val COMPLETED_FRACTION = 0.95
 class PlayerViewModel(
     private val contentRepository: ContentRepository,
     private val progressRepository: WatchProgressRepository,
-    episodeId: String,
+    filmId: String,
 ) : ViewModel() {
-    private val currentEpisodeId = MutableStateFlow(episodeId)
+    private val currentFilmId = MutableStateFlow(filmId)
     private val isFullscreen = MutableStateFlow(false)
 
-    private var trackedEpisodeId: String? = null
+    private var trackedFilmId: String? = null
     private var lastPositionMs = 0L
     private var lastDurationMs = 0L
     private var lastSavedPositionMs = 0L
     private var wasPlaying = false
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<PlayerUiState> = currentEpisodeId
-        .flatMapLatest { id -> contentRepository.observeEpisode(id) }
-        .flatMapLatest { episode ->
-            if (episode == null) {
+    val uiState: StateFlow<PlayerUiState> = currentFilmId
+        .flatMapLatest { id -> contentRepository.observeFilm(id) }
+        .flatMapLatest { film ->
+            if (film == null) {
                 flowOf(PlayerUiState())
             } else {
-                combine(
-                    contentRepository.observeSeries(episode.seriesId),
-                    contentRepository.observeEpisodes(episode.seriesId),
-                ) { series, episodes ->
-                    PlayerUiState(
-                        episode = episode,
-                        series = series,
-                        nextEpisode = episodes.firstOrNull { it.number > episode.number },
-                    )
+                val seriesId = film.seriesId
+                if (seriesId == null) {
+                    flowOf(PlayerUiState(film = film))
+                } else {
+                    combine(
+                        contentRepository.observeSeries(seriesId),
+                        contentRepository.observeFilms(seriesId),
+                    ) { series, films ->
+                        PlayerUiState(
+                            film = film,
+                            series = series,
+                            nextFilm = film.nextIn(films),
+                        )
+                    }
                 }
             }
         }
@@ -74,22 +80,22 @@ class PlayerViewModel(
      * Where a newly created player should start: the live position if this episode was already playing
      * (the platform player was recreated), otherwise the saved resume point unless the episode was finished.
      */
-    fun startPositionMs(episodeId: String): Long {
-        if (episodeId == trackedEpisodeId) return lastPositionMs
-        val saved = progressRepository.get(episodeId) ?: return 0L
+    fun startPositionMs(filmId: String): Long {
+        if (filmId == trackedFilmId) return lastPositionMs
+        val saved = progressRepository.get(filmId) ?: return 0L
         return if (saved.completed) 0L else saved.positionSeconds * 1000L
     }
 
     fun onPlaybackUpdate(
-        episodeId: String,
+        filmId: String,
         positionMs: Long,
         durationMs: Long,
         isPlaying: Boolean,
         isEnded: Boolean,
     ) {
-        if (episodeId != trackedEpisodeId) {
+        if (filmId != trackedFilmId) {
             saveProgress()
-            trackedEpisodeId = episodeId
+            trackedFilmId = filmId
             lastDurationMs = 0L
             lastSavedPositionMs = positionMs
             wasPlaying = false
@@ -105,9 +111,9 @@ class PlayerViewModel(
         }
     }
 
-    fun playEpisode(episodeId: String) {
+    fun playFilm(filmId: String) {
         saveProgress()
-        currentEpisodeId.value = episodeId
+        currentFilmId.value = filmId
     }
 
     fun toggleFullscreen() {
@@ -123,7 +129,7 @@ class PlayerViewModel(
     }
 
     private fun saveProgress(ended: Boolean = false) {
-        val episodeId = trackedEpisodeId ?: return
+        val filmId = trackedFilmId ?: return
         val durationMs = lastDurationMs
         if (durationMs <= 0L) return
         val completed = ended || lastPositionMs >= durationMs * COMPLETED_FRACTION
@@ -131,7 +137,7 @@ class PlayerViewModel(
 
         progressRepository.save(
             WatchProgress(
-                episodeId = episodeId,
+                filmId = filmId,
                 positionSeconds = if (completed) (durationMs / 1000).toInt() else (lastPositionMs / 1000).toInt(),
                 durationSeconds = (durationMs / 1000).toInt(),
                 completed = completed,

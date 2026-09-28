@@ -1,10 +1,12 @@
 package com.anime.app.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class WatchProgress(
-    val episodeId: String,
+    @SerialName("episodeId")
+    val filmId: String,
     val positionSeconds: Int,
     val durationSeconds: Int,
     val completed: Boolean,

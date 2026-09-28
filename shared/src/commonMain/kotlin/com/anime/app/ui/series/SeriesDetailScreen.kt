@@ -19,9 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -32,14 +29,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,9 +43,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
-import com.anime.app.model.Episode
+import com.anime.app.model.Film
 import com.anime.app.model.WatchProgress
-import com.anime.app.ui.admin.ConfirmDeleteDialog
 import com.anime.app.ui.components.MetadataPill
 import com.anime.app.ui.components.SectionHeader
 import com.anime.app.ui.components.DesignedState
@@ -69,16 +61,10 @@ fun SeriesDetailScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onBack: () -> Unit,
-    onEpisodeClick: (Episode) -> Unit,
-    onEditSeries: () -> Unit,
-    onAddEpisode: () -> Unit,
-    onEditEpisode: (Episode) -> Unit,
-    onSeriesDeleted: () -> Unit,
+    onFilmClick: (Film) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val series = uiState.series
-    var confirmDeleteSeries by remember { mutableStateOf(false) }
-    var episodePendingDelete by remember { mutableStateOf<Episode?>(null) }
 
     if (uiState.isLoading || series == null) {
         SeriesDetailSkeleton()
@@ -178,6 +164,21 @@ fun SeriesDetailScreen(
                                 text = series.title,
                                 style = MaterialTheme.typography.headlineLarge,
                             )
+                            if (uiState.creatorName.isNotBlank()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        text = uiState.creatorName,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    FilledTonalButton(onClick = viewModel::toggleFollow) {
+                                        Text(if (uiState.isFollowing) "Following" else "Follow")
+                                    }
+                                }
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 series.genres.take(2).forEach { genre -> MetadataPill(genre) }
                             }
@@ -202,14 +203,14 @@ fun SeriesDetailScreen(
                         }
                     }
                 }
-                val playEpisode = uiState.episodes.firstOrNull {
+                val playFilm = uiState.films.firstOrNull {
                     uiState.progress[it.id]?.completed != true
-                } ?: uiState.episodes.firstOrNull()
-                if (playEpisode != null) {
+                } ?: uiState.films.firstOrNull()
+                if (playFilm != null) {
                     item {
-                        val progress = uiState.progress[playEpisode.id]
+                        val progress = uiState.progress[playFilm.id]
                         Button(
-                            onClick = { onEpisodeClick(playEpisode) },
+                            onClick = { onFilmClick(playFilm) },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
@@ -219,54 +220,30 @@ fun SeriesDetailScreen(
                             Icon(Icons.Filled.PlayArrow, contentDescription = null)
                             Text(
                                 text = if (progress != null && !progress.completed) {
-                                    "Resume episode ${playEpisode.number}"
+                                    "Resume episode ${playFilm.episodeNumber}"
                                 } else {
-                                    "Play episode ${playEpisode.number}"
+                                    "Play episode ${playFilm.episodeNumber}"
                                 },
                                 modifier = Modifier.padding(start = 6.dp),
                             )
                         }
                     }
                 }
-                if (uiState.isAdmin) {
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = onEditSeries) {
-                                Icon(Icons.Filled.Edit, contentDescription = null)
-                                Text("Edit series", modifier = Modifier.padding(start = 6.dp))
-                            }
-                            OutlinedButton(onClick = { confirmDeleteSeries = true }) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                                Text(
-                                    text = "Delete",
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.padding(start = 6.dp),
-                                )
-                            }
-                        }
+                item {
+                    FilledTonalButton(
+                        onClick = viewModel::toggleLike,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (uiState.isLiked) "Liked" else "Like")
                     }
                 }
                 item {
                     SectionHeader(
                         title = "Episodes",
-                        eyebrow = "${uiState.episodes.size} available",
-                        action = if (uiState.isAdmin) {
-                            {
-                                FilledTonalButton(onClick = onAddEpisode) {
-                                    Icon(Icons.Filled.Add, contentDescription = null)
-                                    Text("Add", modifier = Modifier.padding(start = 6.dp))
-                                }
-                            }
-                        } else {
-                            null
-                        },
+                        eyebrow = "${uiState.films.size} available",
                     )
                 }
-                if (uiState.episodes.isEmpty()) {
+                if (uiState.films.isEmpty()) {
                     item {
                         DesignedState(
                             title = "The reel is waiting",
@@ -274,53 +251,23 @@ fun SeriesDetailScreen(
                         )
                     }
                 }
-                items(uiState.episodes, key = { it.id }) { episode ->
+                items(uiState.films, key = { it.id }) { film ->
                     EpisodeRow(
-                        episode = episode,
-                        progress = uiState.progress[episode.id],
-                        isAdmin = uiState.isAdmin,
-                        onClick = { onEpisodeClick(episode) },
-                        onEdit = { onEditEpisode(episode) },
-                        onDelete = { episodePendingDelete = episode },
+                        film = film,
+                        progress = uiState.progress[film.id],
+                        onClick = { onFilmClick(film) },
                     )
                 }
             }
         }
     }
-
-    if (confirmDeleteSeries) {
-        ConfirmDeleteDialog(
-            title = "Delete series?",
-            message = "\"${series.title}\" and its ${uiState.episodes.size} episode(s) will be removed.",
-            onConfirm = {
-                confirmDeleteSeries = false
-                viewModel.deleteSeries(onDeleted = onSeriesDeleted)
-            },
-            onDismiss = { confirmDeleteSeries = false },
-        )
-    }
-
-    episodePendingDelete?.let { episode ->
-        ConfirmDeleteDialog(
-            title = "Delete episode?",
-            message = "\"Ep. ${episode.number}: ${episode.title}\" will be removed.",
-            onConfirm = {
-                episodePendingDelete = null
-                viewModel.deleteEpisode(episode.id)
-            },
-            onDismiss = { episodePendingDelete = null },
-        )
-    }
 }
 
 @Composable
 private fun EpisodeRow(
-    episode: Episode,
+    film: Film,
     progress: WatchProgress?,
-    isAdmin: Boolean,
     onClick: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
 ) {
     Card(
         onClick = onClick,
@@ -335,8 +282,8 @@ private fun EpisodeRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(
-                model = episode.thumbnailUrl.ifBlank { null },
-                contentDescription = episode.title,
+                model = film.thumbnailUrl.ifBlank { null },
+                contentDescription = film.title,
                 modifier = Modifier
                     .weight(0.4f)
                     .aspectRatio(16f / 9f)
@@ -346,14 +293,14 @@ private fun EpisodeRow(
             )
             Column(modifier = Modifier.weight(0.6f)) {
                 Text(
-                    text = episode.title,
+                    text = film.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     text = when {
-                        progress?.completed == true -> "EP ${episode.number}  ·  ${formatDuration(episode.durationSeconds)}  ·  WATCHED"
-                        else -> "EP ${episode.number}  ·  ${formatDuration(episode.durationSeconds)}"
+                        progress?.completed == true -> "EP ${film.episodeNumber}  ·  ${formatDuration(film.durationSeconds)}  ·  WATCHED"
+                        else -> "EP ${film.episodeNumber}  ·  ${formatDuration(film.durationSeconds)}"
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -365,20 +312,6 @@ private fun EpisodeRow(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         drawStopIndicator = {},
                     )
-                }
-            }
-            if (isAdmin) {
-                Column {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit episode")
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Filled.Delete,
-                            contentDescription = "Delete episode",
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                    }
                 }
             }
         }

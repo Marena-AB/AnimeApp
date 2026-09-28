@@ -1,7 +1,7 @@
 # Anime Platform — Project Plan
 
-> Living document. Update it whenever a decision is made, changed, or an open question gets answered.
-> Last updated: 2026-09-23
+> Record of the single-creator animation prototype. The next product direction lives in [DIRECTION.md](DIRECTION.md). Do not plan new features from the vision in this file.
+> Last updated: 2026-09-27
 
 ## 1. Vision
 

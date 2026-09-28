@@ -4,6 +4,7 @@ import kotlin.time.Instant
 
 data class Series(
     val id: String,
+    val creatorId: String,
     val title: String,
     val description: String,
     val coverUrl: String,

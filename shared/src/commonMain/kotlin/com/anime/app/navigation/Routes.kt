@@ -15,11 +15,21 @@ data object ComponentGalleryRoute
 data class SeriesDetailRoute(val seriesId: String)
 
 @Serializable
-data class PlayerRoute(val episodeId: String)
+data class FilmDetailRoute(val filmId: String)
+
+@Serializable
+data class PlayerRoute(val filmId: String)
+
+@Serializable
+data object CreatorStudioRoute
 
 /** `seriesId == null` creates a new series. */
 @Serializable
 data class SeriesEditorRoute(val seriesId: String? = null)
+
+/** `filmId == null` publishes a one-off. */
+@Serializable
+data class FilmEditorRoute(val filmId: String? = null)
 
 /** `episodeId == null` adds a new episode to [seriesId]. */
 @Serializable

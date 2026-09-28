@@ -1,38 +1,51 @@
 package com.anime.app.data
 
-import com.anime.app.model.Episode
+import com.anime.app.model.Creator
+import com.anime.app.model.Film
 import com.anime.app.model.Series
 import com.anime.app.model.SeriesStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlin.random.Random
 import kotlin.time.Clock
 import kotlin.time.Instant
-import kotlin.random.Random
 
 class FakeContentRepository : ContentRepository {
+    private val creatorsState = MutableStateFlow(seedCreators())
     private val seriesState = MutableStateFlow(seedSeries())
-    private val episodesState = MutableStateFlow(seedEpisodes())
+    private val filmsState = MutableStateFlow(seedFilms())
+
+    override fun observeCreators(): Flow<List<Creator>> = creatorsState
+
+    override fun observeCreator(creatorId: String): Flow<Creator?> =
+        creatorsState.map { creators -> creators.find { it.id == creatorId } }
 
     override fun observeSeries(): Flow<List<Series>> = seriesState
 
     override fun observeSeries(seriesId: String): Flow<Series?> =
         seriesState.map { series -> series.find { it.id == seriesId } }
 
-    override fun observeEpisodes(seriesId: String): Flow<List<Episode>> =
-        episodesState.map { episodes ->
-            episodes.filter { it.seriesId == seriesId }.sortedBy { it.number }
+    override fun observeFilms(seriesId: String): Flow<List<Film>> =
+        filmsState.map { films ->
+            films
+                .filter { it.seriesId == seriesId }
+                .sortedBy { it.episodeNumber ?: Int.MAX_VALUE }
         }
 
-    override fun observeAllEpisodes(): Flow<List<Episode>> = episodesState
+    override fun observeOneOffs(): Flow<List<Film>> =
+        filmsState.map { films -> films.filter { it.isOneOff } }
 
-    override fun observeEpisode(episodeId: String): Flow<Episode?> =
-        episodesState.map { episodes -> episodes.find { it.id == episodeId } }
+    override fun observeAllFilms(): Flow<List<Film>> = filmsState
+
+    override fun observeFilm(filmId: String): Flow<Film?> =
+        filmsState.map { films -> films.find { it.id == filmId } }
 
     override suspend fun createSeries(series: NewSeries): Series {
         val created = Series(
             id = newId(),
+            creatorId = series.creatorId,
             title = series.title,
             description = series.description,
             coverUrl = series.coverUrl,
@@ -53,35 +66,39 @@ class FakeContentRepository : ContentRepository {
 
     override suspend fun deleteSeries(seriesId: String) {
         seriesState.update { it.filterNot { series -> series.id == seriesId } }
-        episodesState.update { it.filterNot { episode -> episode.seriesId == seriesId } }
+        filmsState.update { it.filterNot { film -> film.seriesId == seriesId } }
     }
 
-    override suspend fun addEpisode(episode: NewEpisode): Episode {
-        val created = Episode(
+    override suspend fun addFilm(film: NewFilm): Film {
+        val created = Film(
             id = newId(),
-            seriesId = episode.seriesId,
-            number = episode.number,
-            title = episode.title,
-            description = episode.description,
-            thumbnailUrl = episode.thumbnailUrl,
-            videoUrl = episode.videoUrl,
-            durationSeconds = episode.durationSeconds,
-            publishedAt = episode.publishedAt,
-            introStartSeconds = episode.introStartSeconds,
-            introEndSeconds = episode.introEndSeconds,
+            creatorId = film.creatorId,
+            seriesId = film.seriesId,
+            episodeNumber = film.episodeNumber,
+            title = film.title,
+            description = film.description,
+            thumbnailUrl = film.thumbnailUrl,
+            videoUrl = film.videoUrl,
+            durationSeconds = film.durationSeconds,
+            publishedAt = film.publishedAt,
+            tools = film.tools,
+            modelName = film.modelName,
+            origin = film.origin,
+            introStartSeconds = film.introStartSeconds,
+            introEndSeconds = film.introEndSeconds,
         )
-        episodesState.update { it + created }
+        filmsState.update { it + created }
         return created
     }
 
-    override suspend fun updateEpisode(episode: Episode) {
-        episodesState.update { current ->
-            current.map { if (it.id == episode.id) episode else it }
+    override suspend fun updateFilm(film: Film) {
+        filmsState.update { current ->
+            current.map { if (it.id == film.id) film else it }
         }
     }
 
-    override suspend fun deleteEpisode(episodeId: String) {
-        episodesState.update { it.filterNot { episode -> episode.id == episodeId } }
+    override suspend fun deleteFilm(filmId: String) {
+        filmsState.update { it.filterNot { film -> film.id == filmId } }
     }
 
     private fun newId(): String = buildString {
@@ -91,9 +108,31 @@ class FakeContentRepository : ContentRepository {
     companion object {
         private val seedInstant = Instant.parse("2010-01-01T00:00:00Z")
 
+        private fun seedCreators(): List<Creator> = listOf(
+            Creator(
+                id = "pampas",
+                displayName = "Pampas Pictures",
+                avatarUrl = "",
+                bio = "Short comedies about animals who refuse to learn.",
+            ),
+            Creator(
+                id = "peach",
+                displayName = "Peach Tree",
+                avatarUrl = "",
+                bio = "Bright forest films and one-off experiments.",
+            ),
+            Creator(
+                id = "relay",
+                displayName = "Relay",
+                avatarUrl = "",
+                bio = "Fantasy and mechanical worlds.",
+            ),
+        )
+
         private fun seedSeries(): List<Series> = listOf(
             Series(
                 id = "caminandes",
+                creatorId = "pampas",
                 title = "Caminandes",
                 description = "Koro the stubborn llama battles the harsh Patagonian landscape, one bad idea at a time.",
                 coverUrl = "https://archive.org/services/img/CaminandesLlamigos",
@@ -104,6 +143,7 @@ class FakeContentRepository : ContentRepository {
             ),
             Series(
                 id = "bbb",
+                creatorId = "peach",
                 title = "Big Buck Bunny",
                 description = "A large-hearted rabbit takes on three bullying rodents in a lush forest.",
                 coverUrl = "https://archive.org/services/img/BigBuckBunny_124",
@@ -114,6 +154,7 @@ class FakeContentRepository : ContentRepository {
             ),
             Series(
                 id = "sintel",
+                creatorId = "relay",
                 title = "Sintel",
                 description = "A young woman searches for a dragon she raised from infancy.",
                 coverUrl = "https://archive.org/services/img/Sintel",
@@ -124,6 +165,7 @@ class FakeContentRepository : ContentRepository {
             ),
             Series(
                 id = "elephants-dream",
+                creatorId = "relay",
                 title = "Elephants Dream",
                 description = "Two men explore a surreal mechanical world and the secrets it hides.",
                 coverUrl = "https://archive.org/services/img/ElephantsDream",
@@ -134,11 +176,12 @@ class FakeContentRepository : ContentRepository {
             ),
         )
 
-        private fun seedEpisodes(): List<Episode> = listOf(
-            Episode(
+        private fun seedFilms(): List<Film> = listOf(
+            Film(
                 id = "caminandes-ep1",
+                creatorId = "pampas",
                 seriesId = "caminandes",
-                number = 1,
+                episodeNumber = 1,
                 title = "Llama Drama",
                 description = "Koro wants the grass on the other side of the road. The road has other plans.",
                 thumbnailUrl = "https://archive.org/services/img/Caminandes1LlamaDrama",
@@ -148,10 +191,11 @@ class FakeContentRepository : ContentRepository {
                 introStartSeconds = 0,
                 introEndSeconds = 8,
             ),
-            Episode(
+            Film(
                 id = "caminandes-ep2",
+                creatorId = "pampas",
                 seriesId = "caminandes",
-                number = 2,
+                episodeNumber = 2,
                 title = "Gran Dillama",
                 description = "An electric fence stands between Koro and the greener pastures beyond.",
                 thumbnailUrl = "https://archive.org/services/img/Caminandes2GranDillama",
@@ -159,10 +203,11 @@ class FakeContentRepository : ContentRepository {
                 durationSeconds = 146,
                 publishedAt = Instant.parse("2013-11-01T00:00:00Z"),
             ),
-            Episode(
+            Film(
                 id = "caminandes-ep3",
+                creatorId = "pampas",
                 seriesId = "caminandes",
-                number = 3,
+                episodeNumber = 3,
                 title = "Llamigos",
                 description = "Winter arrives, berries are scarce, and Koro meets a penguin with the same idea.",
                 thumbnailUrl = "https://archive.org/services/img/CaminandesLlamigos",
@@ -170,10 +215,11 @@ class FakeContentRepository : ContentRepository {
                 durationSeconds = 150,
                 publishedAt = Instant.parse("2016-01-29T00:00:00Z"),
             ),
-            Episode(
+            Film(
                 id = "bbb-ep1",
+                creatorId = "peach",
                 seriesId = "bbb",
-                number = 1,
+                episodeNumber = 1,
                 title = "Big Buck Bunny",
                 description = "The full open movie.",
                 thumbnailUrl = "https://archive.org/services/img/BigBuckBunny_124",
@@ -181,10 +227,11 @@ class FakeContentRepository : ContentRepository {
                 durationSeconds = 596,
                 publishedAt = seedInstant,
             ),
-            Episode(
+            Film(
                 id = "sintel-ep1",
+                creatorId = "relay",
                 seriesId = "sintel",
-                number = 1,
+                episodeNumber = 1,
                 title = "Sintel",
                 description = "The full open movie.",
                 thumbnailUrl = "https://archive.org/services/img/Sintel",
@@ -192,15 +239,36 @@ class FakeContentRepository : ContentRepository {
                 durationSeconds = 888,
                 publishedAt = seedInstant,
             ),
-            Episode(
+            Film(
                 id = "elephants-dream-ep1",
+                creatorId = "relay",
                 seriesId = "elephants-dream",
-                number = 1,
+                episodeNumber = 1,
                 title = "Elephants Dream",
                 description = "The full open movie.",
                 thumbnailUrl = "https://archive.org/services/img/ElephantsDream",
                 videoUrl = "https://archive.org/download/ElephantsDream/ed_hd.mp4",
                 durationSeconds = 653,
+                publishedAt = seedInstant,
+            ),
+            Film(
+                id = "oneoff-fence",
+                creatorId = "peach",
+                title = "The Fence",
+                description = "A standalone short. Gran Dillama © Blender Foundation | CC BY 3.0.",
+                thumbnailUrl = "https://archive.org/services/img/Caminandes2GranDillama",
+                videoUrl = "https://archive.org/download/Caminandes2GranDillama/02_gran_dillama_1080p.mp4",
+                durationSeconds = 146,
+                publishedAt = Instant.parse("2013-11-01T00:00:00Z"),
+            ),
+            Film(
+                id = "oneoff-search",
+                creatorId = "pampas",
+                title = "The Search",
+                description = "A standalone film. Sintel © Blender Foundation | CC BY 3.0.",
+                thumbnailUrl = "https://archive.org/services/img/Sintel",
+                videoUrl = "https://archive.org/download/Sintel/sintel-2048-surround.mp4",
+                durationSeconds = 888,
                 publishedAt = seedInstant,
             ),
         )

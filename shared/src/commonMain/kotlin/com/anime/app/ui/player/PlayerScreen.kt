@@ -44,7 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
-import com.anime.app.model.Episode
+import com.anime.app.model.Film
 import com.anime.app.ui.components.MetadataPill
 import com.anime.app.ui.components.SkeletonBlock
 import kotlinx.coroutines.delay
@@ -65,9 +65,9 @@ fun PlayerScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
-    val episode = uiState.episode
+    val film = uiState.film
 
-    if (episode == null) {
+    if (film == null) {
         Column(
             modifier = Modifier.fillMaxSize().safeDrawingPadding(),
             verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -91,15 +91,15 @@ fun PlayerScreen(
     )
 
     val controller = rememberVideoPlayerController(
-        url = episode.videoUrl,
-        startPositionMs = remember(episode.id) { viewModel.startPositionMs(episode.id) },
+        url = film.videoUrl,
+        startPositionMs = remember(film.id) { viewModel.startPositionMs(film.id) },
     )
-    LaunchedEffect(controller, episode.id) {
+    LaunchedEffect(controller, film.id) {
         snapshotFlow {
             PlaybackSnapshot(controller.positionMs, controller.durationMs, controller.isPlaying, controller.isEnded)
         }.collect { snapshot ->
             viewModel.onPlaybackUpdate(
-                episodeId = episode.id,
+                filmId = film.id,
                 positionMs = snapshot.positionMs,
                 durationMs = snapshot.durationMs,
                 isPlaying = snapshot.isPlaying,
@@ -108,22 +108,22 @@ fun PlayerScreen(
         }
     }
 
-    val nextEpisode = uiState.nextEpisode
-    var autoNextCancelled by remember(episode.id) { mutableStateOf(false) }
-    var secondsRemaining by remember(episode.id) { mutableIntStateOf(AUTO_NEXT_SECONDS) }
-    val showUpNext = controller.isEnded && nextEpisode != null && !autoNextCancelled
+    val nextFilm = uiState.nextFilm
+    var autoNextCancelled by remember(film.id) { mutableStateOf(false) }
+    var secondsRemaining by remember(film.id) { mutableIntStateOf(AUTO_NEXT_SECONDS) }
+    val showUpNext = controller.isEnded && nextFilm != null && !autoNextCancelled
 
     LaunchedEffect(controller.isEnded) {
         if (!controller.isEnded) autoNextCancelled = false
     }
-    LaunchedEffect(showUpNext, nextEpisode) {
+    LaunchedEffect(showUpNext, nextFilm) {
         secondsRemaining = AUTO_NEXT_SECONDS
         if (!showUpNext) return@LaunchedEffect
         while (secondsRemaining > 0) {
             delay(1_000)
             secondsRemaining--
         }
-        viewModel.playEpisode(nextEpisode.id)
+        viewModel.playFilm(nextFilm.id)
     }
 
     val handleBack = {
@@ -151,18 +151,18 @@ fun PlayerScreen(
             overlay = {
                 if (showUpNext) {
                     UpNextOverlay(
-                        nextEpisode = nextEpisode,
+                        nextFilm = nextFilm,
                         secondsRemaining = secondsRemaining,
                         onPlayNow = {
                             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            viewModel.playEpisode(nextEpisode.id)
+                            viewModel.playFilm(nextFilm.id)
                         },
                         onCancel = { autoNextCancelled = true },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
-                val introStart = episode.introStartSeconds
-                val introEnd = episode.introEndSeconds
+                val introStart = film.introStartSeconds
+                val introEnd = film.introEndSeconds
                 val positionSeconds = controller.positionMs / 1000L
                 if (
                     !showUpNext &&
@@ -186,12 +186,12 @@ fun PlayerScreen(
         )
 
         if (!uiState.isFullscreen) {
-            EpisodeDetails(
-                episode = episode,
+            FilmDetails(
+                film = film,
                 seriesTitle = uiState.series?.title,
                 attribution = uiState.series?.attribution,
-                nextEpisode = nextEpisode,
-                onPlayNext = { next -> viewModel.playEpisode(next.id) },
+                nextFilm = nextFilm,
+                onPlayNext = { next -> viewModel.playFilm(next.id) },
             )
         }
     }
@@ -199,7 +199,7 @@ fun PlayerScreen(
 
 @Composable
 private fun UpNextOverlay(
-    nextEpisode: Episode,
+    nextFilm: Film,
     secondsRemaining: Int,
     onPlayNow: () -> Unit,
     onCancel: () -> Unit,
@@ -227,7 +227,7 @@ private fun UpNextOverlay(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = "Ep. ${nextEpisode.number}: ${nextEpisode.title}",
+                    text = nextFilm.episodeNumber?.let { "Ep. $it: ${nextFilm.title}" } ?: nextFilm.title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -243,12 +243,12 @@ private fun UpNextOverlay(
 }
 
 @Composable
-private fun EpisodeDetails(
-    episode: Episode,
+private fun FilmDetails(
+    film: Film,
     seriesTitle: String?,
     attribution: String?,
-    nextEpisode: Episode?,
-    onPlayNext: (Episode) -> Unit,
+    nextFilm: Film?,
+    onPlayNext: (Film) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -265,18 +265,21 @@ private fun EpisodeDetails(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MetadataPill(text = "EPISODE ${episode.number}", accent = true)
-            if (episode.durationSeconds > 0) {
-                MetadataPill(text = formatPlaybackTime(episode.durationSeconds * 1000L))
+            MetadataPill(
+                text = film.episodeNumber?.let { "EPISODE $it" } ?: "FILM",
+                accent = true,
+            )
+            if (film.durationSeconds > 0) {
+                MetadataPill(text = formatPlaybackTime(film.durationSeconds * 1000L))
             }
         }
         Text(
-            text = episode.title,
+            text = film.title,
             style = MaterialTheme.typography.headlineMedium,
         )
-        if (episode.description.isNotBlank()) {
+        if (film.description.isNotBlank()) {
             Text(
-                text = episode.description,
+                text = film.description,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -288,14 +291,14 @@ private fun EpisodeDetails(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        nextEpisode?.let { next ->
+        nextFilm?.let { next ->
             FilledTonalButton(
                 onClick = { onPlayNext(next) },
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                 Text(
-                    text = "Next · Ep. ${next.number}: ${next.title}",
+                    text = next.episodeNumber?.let { "Next · Ep. $it: ${next.title}" } ?: "Next · ${next.title}",
                     modifier = Modifier.padding(start = 8.dp),
                 )
             }
