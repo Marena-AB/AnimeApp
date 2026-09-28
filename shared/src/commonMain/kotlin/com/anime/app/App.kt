@@ -264,7 +264,12 @@ fun App() {
                     }
                     PlayerScreen(
                         viewModel = viewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = {
+                            val player = PlayerRoute(filmId = route.filmId)
+                            if (!navController.popBackStack(player, inclusive = true)) {
+                                navController.popBackStack()
+                            }
+                        },
                     )
                 }
             }

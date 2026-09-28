@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -66,12 +68,22 @@ fun PlayerScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     val film = uiState.film
+    if (uiState.isFullscreen) {
+        NavigationBackHandler(
+            state = rememberNavigationEventState(NavigationEventInfo.None),
+            isBackEnabled = true,
+            onBackCompleted = viewModel::exitFullscreen,
+        )
+    }
 
     if (film == null) {
         Column(
             modifier = Modifier.fillMaxSize().safeDrawingPadding(),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
             SkeletonBlock(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f))
             SkeletonBlock(
                 modifier = Modifier.fillMaxWidth(0.5f).height(30.dp).padding(horizontal = 20.dp),
@@ -84,11 +96,6 @@ fun PlayerScreen(
     }
 
     FullscreenEffect(enabled = uiState.isFullscreen)
-    NavigationBackHandler(
-        state = rememberNavigationEventState(NavigationEventInfo.None),
-        isBackEnabled = uiState.isFullscreen,
-        onBackCompleted = viewModel::exitFullscreen,
-    )
 
     val controller = rememberVideoPlayerController(
         url = film.videoUrl,
@@ -126,10 +133,6 @@ fun PlayerScreen(
         viewModel.playFilm(nextFilm.id)
     }
 
-    val handleBack = {
-        if (uiState.isFullscreen) viewModel.exitFullscreen() else onBack()
-    }
-
     // The player stays at the same position in the tree in both modes so the surface isn't recreated.
     Column(
         modifier = if (uiState.isFullscreen) {
@@ -138,11 +141,17 @@ fun PlayerScreen(
             Modifier.fillMaxSize().safeDrawingPadding()
         },
     ) {
+        if (!uiState.isFullscreen) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+        }
         VideoPlayer(
             controller = controller,
             isFullscreen = uiState.isFullscreen,
             onToggleFullscreen = viewModel::toggleFullscreen,
-            onBack = handleBack,
+            onBack = viewModel::exitFullscreen,
+            showBackButton = uiState.isFullscreen,
             modifier = if (uiState.isFullscreen) {
                 Modifier.fillMaxSize()
             } else {

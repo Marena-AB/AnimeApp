@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -65,6 +66,7 @@ fun VideoPlayer(
     isFullscreen: Boolean,
     onToggleFullscreen: () -> Unit,
     onBack: () -> Unit,
+    showBackButton: Boolean = true,
     modifier: Modifier = Modifier,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
@@ -141,7 +143,6 @@ fun VideoPlayer(
                 controller = controller,
                 isFullscreen = isFullscreen,
                 onToggleFullscreen = onToggleFullscreen,
-                onBack = onBack,
                 onInteraction = { interactionCount++ },
                 onDismiss = { controlsVisible = false },
             )
@@ -189,6 +190,19 @@ fun VideoPlayer(
         }
 
         overlay()
+
+        if (showBackButton) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .zIndex(1f)
+                    .then(if (isFullscreen) Modifier.safeDrawingPadding() else Modifier)
+                    .padding(4.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+            }
+        }
     }
 }
 
@@ -197,7 +211,6 @@ private fun PlayerControls(
     controller: VideoPlayerController,
     isFullscreen: Boolean,
     onToggleFullscreen: () -> Unit,
-    onBack: () -> Unit,
     onInteraction: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -217,10 +230,6 @@ private fun PlayerControls(
             )
             .then(if (isFullscreen) Modifier.safeDrawingPadding() else Modifier),
     ) {
-        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopStart).padding(4.dp)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-        }
-
         IconButton(
             onClick = {
                 onInteraction()

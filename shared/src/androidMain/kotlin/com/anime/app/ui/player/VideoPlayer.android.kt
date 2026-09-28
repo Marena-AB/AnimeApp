@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.view.KeyEvent
+import android.view.ViewGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -112,9 +114,15 @@ actual fun VideoSurface(controller: VideoPlayerController, modifier: Modifier) {
     key(player) {
         AndroidView(
             factory = { context ->
-                PlayerView(context).apply {
+                object : PlayerView(context) {
+                    override fun dispatchKeyEvent(event: KeyEvent): Boolean = false
+                }.apply {
                     useController = false
+                    isFocusable = false
+                    isFocusableInTouchMode = false
+                    descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                     this.player = player
+                    isFocusable = false
                 }
             },
             onRelease = { it.player = null },
