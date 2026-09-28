@@ -164,6 +164,34 @@ fun HomeScreen(
             }
         }
 
+        uiState.becauseYouWatched?.let { shelf ->
+            item(key = "because-you-watched", span = { GridItemSpan(maxLineSpan) }) {
+                ShelfRow(
+                    title = shelf.watchedTitle,
+                    eyebrow = "Because you watched",
+                    entries = shelf.entries,
+                    onOpen = { entry ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        openShelfEntry(entry, onSeriesClick, onFilmClick)
+                    },
+                )
+            }
+        }
+
+        if (uiState.recommended.isNotEmpty()) {
+            item(key = "recommended", span = { GridItemSpan(maxLineSpan) }) {
+                ShelfRow(
+                    title = "Recommended",
+                    eyebrow = "More series",
+                    entries = uiState.recommended,
+                    onOpen = { entry ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        openShelfEntry(entry, onSeriesClick, onFilmClick)
+                    },
+                )
+            }
+        }
+
         if (uiState.oneOffs.isNotEmpty()) {
             item(key = "films", span = { GridItemSpan(maxLineSpan) }) {
                 FilmsRow(
@@ -179,7 +207,7 @@ fun HomeScreen(
 
         item(key = "all-series-header", span = { GridItemSpan(maxLineSpan) }) {
             SectionHeader(
-                title = "Series",
+                title = "All series",
                 eyebrow = "${uiState.series.size} titles",
             )
         }
@@ -230,7 +258,7 @@ private fun HomeHeader(
         BrandMark()
         Spacer(modifier = Modifier.weight(1f))
         TextButton(onClick = onOpenStudio) {
-            Text("Studio")
+            Text("MyStudio")
         }
         IconButton(
             onClick = onOpenDesignLab,
@@ -338,14 +366,42 @@ private fun FeaturedBanner(
     }
 }
 
+private fun openShelfEntry(
+    entry: FollowingEntry,
+    onSeriesClick: (Series) -> Unit,
+    onFilmClick: (Film) -> Unit,
+) {
+    when (entry) {
+        is FollowingEntry.SeriesEntry -> onSeriesClick(entry.series)
+        is FollowingEntry.FilmEntry -> onFilmClick(entry.film)
+    }
+}
+
 @Composable
 private fun FollowingRow(
     entries: List<FollowingEntry>,
     onOpen: (FollowingEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    ShelfRow(
+        title = "Following",
+        eyebrow = "Creators you follow",
+        entries = entries,
+        onOpen = onOpen,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ShelfRow(
+    title: String,
+    eyebrow: String,
+    entries: List<FollowingEntry>,
+    onOpen: (FollowingEntry) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionHeader(title = "Following", eyebrow = "Creators you follow")
+        SectionHeader(title = title, eyebrow = eyebrow)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(entries, key = { it.key }) { entry ->
                 FollowingCard(entry = entry, onClick = { onOpen(entry) })
@@ -462,7 +518,7 @@ private fun FilmsRow(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionHeader(title = "Films", eyebrow = "One-offs")
+        SectionHeader(title = "Short films", eyebrow = "On their own")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(films, key = { it.id }) { film ->
                 FilmCard(

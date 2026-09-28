@@ -31,6 +31,8 @@ data class HomeUiState(
     /** The film the featured banner's Play button starts: the first one not yet finished. */
     val featuredFilm: Film? = null,
     val continueWatching: List<ContinueWatchingItem> = emptyList(),
+    val becauseYouWatched: BecauseYouWatched? = null,
+    val recommended: List<FollowingEntry> = emptyList(),
     val series: List<Series> = emptyList(),
     val creatorsById: Map<String, Creator> = emptyMap(),
     val oneOffs: List<Film> = emptyList(),
@@ -56,6 +58,20 @@ class HomeViewModel(
         val featuredFilms = films
             .filter { it.seriesId == featured?.id }
             .sortedBy { it.episodeNumber ?: Int.MAX_VALUE }
+        val because = becauseYouWatched(
+            films = films,
+            series = series,
+            progress = progress.values,
+            creatorsById = creatorsById,
+        )
+        val recommended = recommendedShelf(
+            films = films,
+            series = series,
+            featuredSeriesId = featured?.id,
+            progress = progress.values,
+            excludeKeys = because?.entries?.map { it.key }?.toSet().orEmpty(),
+            creatorsById = creatorsById,
+        )
 
         HomeUiState(
             featured = featured,
@@ -84,6 +100,8 @@ class HomeViewModel(
                         progress = entry,
                     )
                 },
+            becauseYouWatched = because,
+            recommended = recommended,
             series = series,
             creatorsById = creatorsById,
             oneOffs = films.filter { it.isOneOff },

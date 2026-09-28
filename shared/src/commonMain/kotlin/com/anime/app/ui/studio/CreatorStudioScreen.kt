@@ -73,12 +73,17 @@ fun CreatorStudioScreen(
             }
             creator == null -> {
                 DesignedState(
-                    title = "Studio unavailable",
+                    title = "MyStudio unavailable",
                     message = "This creator is not in the catalog.",
                 )
             }
             else -> {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "MyStudio",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                     Text(
                         text = creator.displayName,
                         style = MaterialTheme.typography.headlineMedium,
